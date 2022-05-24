@@ -18,34 +18,35 @@ class Client:
         self,
         *,
         url: str = "http://127.0.0.1:10069",
-        reconnect_timeout: float = 0.1,
+        reconnect_timeout: float = 1,
     ):
         self.stop = False
         self.is_connected = None
         self.url = url
         self.reconnect_timeout = reconnect_timeout
         #
-        self.sio = socketio.AsyncClient()
+        self.sio = socketio.AsyncClient(
+            logger=logging.getLogger("socketio"),
+            engineio_logger=logging.getLogger("engineio"),
+            reconnection_delay=reconnect_timeout,
+        )
         self.sio.on("connect", self.on_connect)
         self.sio.on("connect_error", self.on_connect_error)
         self.sio.on("disconnect", self.on_disconnect)
-        self.sio.on("message", self.on_message)
+        self.sio.on("answer", self.on_message)
 
     async def main(self):
         while not self.stop:
             try:
+                logger.debug("trying to connect")
                 await self.sio.connect(self.url)
+                await self.sio.wait()
             except socketio.exceptions.ConnectionError:
                 if self.stop:
                     break
                 if self.reconnect_timeout:
                     await asyncio.sleep(self.reconnect_timeout)
                 continue
-            else:
-                break
-        logger.debug("trying to disconnect")
-        await self.sio.disconnect()
-        #await self.sio.wait()
 
     async def terminate(self):
         self.stop = True
@@ -56,9 +57,9 @@ class Client:
     async def on_connect(self):
         logger.debug("connection established")
         self.is_connected = True
-        message = "ping"
+        message = {"foo": "bar"}
         logger.debug("send > %r", message)
-        await self.sio.emit("message", message)
+        await self.sio.emit("cmd", message)
 
     async def on_message(self, data):
         logger.debug("recv < %r", data)
