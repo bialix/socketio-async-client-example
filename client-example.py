@@ -23,7 +23,11 @@ class Client:
         self.url = url
         self.reconnect_timeout = reconnect_timeout
         #
-        self.sio = socketio.AsyncClient()
+        self.sio = socketio.AsyncClient(
+            logger=logging.getLogger("socketio"),
+            engineio_logger=logging.getLogger("engineio"),
+            reconnection_delay=reconnect_timeout,
+        )
         self.sio.on("connect", self.on_connect)
         self.sio.on("connect_error", self.on_connect_error)
         self.sio.on("disconnect", self.on_disconnect)
@@ -32,16 +36,15 @@ class Client:
     async def main(self):
         while not self.stop:
             try:
+                logger.debug("trying to connect")
                 await self.sio.connect(self.url)
+                await self.sio.wait()
             except socketio.exceptions.ConnectionError:
                 if self.stop:
                     break
                 if self.reconnect_timeout:
                     await asyncio.sleep(self.reconnect_timeout)
                 continue
-            else:
-                break
-        await self.sio.wait()
 
     async def on_connect(self):
         logger.debug("connection established")
@@ -67,7 +70,7 @@ def main():
     k = Client()
 
     loop = asyncio.get_event_loop()
-    #loop.set_debug(True)
+    # loop.set_debug(True)
 
     try:
         group = asyncio.gather(
