@@ -126,10 +126,8 @@ async def waiting_shutdow(coro):
         await coro()
 
     if True:
-        cur_task = asyncio.tasks.Task.current_task()
-        all_tasks = asyncio.Task.all_tasks()
-
-        tasks = [t for t in all_tasks if t is not cur_task]
+        tasks = [t for t in asyncio.all_tasks() if t is not
+                    asyncio.current_task()]
         for t in tasks:
             t.cancel()
             with suppress(asyncio.CancelledError):
